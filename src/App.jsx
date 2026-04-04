@@ -1,4 +1,5 @@
 import "./App.css"
+import { useState } from "react"
 
 export default function SummitSeniorCareLandingPage() {
   const services = [
@@ -74,6 +75,55 @@ export default function SummitSeniorCareLandingPage() {
     { day: "Sunday", hours: "By request" },
   ]
 
+  const timeSlots = [
+    "9:00 AM",
+    "10:00 AM",
+    "11:00 AM",
+    "12:00 PM",
+    "1:00 PM",
+    "2:00 PM",
+    "3:00 PM",
+    "4:00 PM",
+  ]
+
+  const bookedSlots = {
+    "2026-04-05": ["10:00 AM", "1:00 PM"],
+    "2026-04-06": ["9:00 AM", "3:00 PM"],
+  }
+
+  const [appointmentForm, setAppointmentForm] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    message: "",
+  })
+
+  const [contactForm, setContactForm] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    message: "",
+  })
+
+  const [selectedDate, setSelectedDate] = useState("")
+  const [selectedTime, setSelectedTime] = useState("")
+
+  const handleAppointmentChange = (e) => {
+    const { name, value } = e.target
+    setAppointmentForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }))
+  }
+
+  const handleContactChange = (e) => {
+    const { name, value } = e.target
+    setContactForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }))
+  }
+
   return (
     <div className="site">
       <section className="hero">
@@ -101,7 +151,7 @@ export default function SummitSeniorCareLandingPage() {
               </div>
             </div>
 
-            <a href="#contact" className="btn btn-dark">
+            <a href="#availability" className="btn btn-dark">
               Book a Consultation
             </a>
           </header>
@@ -123,7 +173,7 @@ export default function SummitSeniorCareLandingPage() {
               </p>
 
               <div className="hero-actions">
-                <a href="#contact" className="btn btn-primary">
+                <a href="#availability" className="btn btn-primary">
                   Schedule a Free Consultation
                 </a>
                 <a href="#services" className="btn btn-light">
@@ -236,10 +286,9 @@ export default function SummitSeniorCareLandingPage() {
         <div className="container availability-grid">
           <div className="card availability-card">
             <p className="eyebrow">Availability</p>
-            <h2>Book a time with our representative</h2>
+            <h2>Consultation Hours</h2>
             <p>
-              Choose a convenient time to discuss care needs, service options, and next steps. This section
-              can later be connected to Calendly or another real booking system.
+              Please use the appointment form on the right to request your preferred date and time.
             </p>
 
             <div className="availability-list">
@@ -254,15 +303,101 @@ export default function SummitSeniorCareLandingPage() {
 
           <div className="card form-card">
             <p className="eyebrow">Request an appointment</p>
-            <h3>Send your preferred day and time</h3>
-            <form className="form-grid">
-              <input placeholder="Your name" />
-              <input placeholder="Best phone number to reach you" />
-              <input placeholder="Email address" />
-              <input placeholder="Preferred day" />
-              <input placeholder="Preferred time" />
-              <textarea placeholder="Tell us about your loved one and the kind of support needed" />
-              <button type="button" className="btn btn-dark">
+            <h3>Select your date and time</h3>
+
+            <form
+              action="https://formspree.io/f/xykbpndy"
+              method="POST"
+              className="form-grid"
+            >
+              <input
+                name="name"
+                placeholder="Your name"
+                value={appointmentForm.name}
+                onChange={handleAppointmentChange}
+                required
+              />
+              <input
+                name="phone"
+                placeholder="Best phone number to reach you"
+                value={appointmentForm.phone}
+                onChange={handleAppointmentChange}
+                required
+              />
+              <input
+                name="email"
+                type="email"
+                placeholder="Email address"
+                value={appointmentForm.email}
+                onChange={handleAppointmentChange}
+                required
+              />
+
+              <input
+                type="date"
+                name="preferredDate"
+                value={selectedDate}
+                onChange={(e) => {
+                  setSelectedDate(e.target.value)
+                  setSelectedTime("")
+                }}
+                required
+              />
+
+              <div className="time-grid">
+                {timeSlots.map((time) => {
+                  const isBooked = bookedSlots[selectedDate]?.includes(time)
+
+                  const today = new Date().toISOString().split("T")[0]
+                  let isPast = false
+
+                  if (selectedDate === today) {
+                    const now = new Date()
+                    const [hour, modifier] = time.split(" ")
+                    let [h, m] = hour.split(":").map(Number)
+
+                    if (modifier === "PM" && h !== 12) h += 12
+                    if (modifier === "AM" && h === 12) h = 0
+
+                    const slotTime = new Date()
+                    slotTime.setHours(h, m, 0, 0)
+
+                    const bufferHours = 3
+                    const diffInMs = slotTime - now
+                    const diffInHours = diffInMs / (1000 * 60 * 60)
+
+                    isPast = diffInHours < bufferHours
+                  }
+
+                  return (
+                    <button
+                      type="button"
+                      key={time}
+                      disabled={isBooked || isPast}
+                      className={`time-slot ${selectedTime === time ? "selected" : ""} ${isBooked || isPast ? "booked" : ""}`}
+                      onClick={() => setSelectedTime(time)}
+                    >
+                      {time}
+                    </button>
+                  )
+                })}
+              </div>
+
+              <input type="hidden" name="preferredTime" value={selectedTime} />
+
+              <textarea
+                name="message"
+                placeholder="Tell us about your loved one and the kind of support needed"
+                value={appointmentForm.message}
+                onChange={handleAppointmentChange}
+                required
+              />
+
+              <button
+                type="submit"
+                className="btn btn-dark"
+                disabled={!selectedDate || !selectedTime}
+              >
                 Request Appointment
               </button>
             </form>
@@ -288,12 +423,41 @@ export default function SummitSeniorCareLandingPage() {
           </div>
 
           <div className="contact-form-wrap">
-            <form className="form-grid">
-              <input placeholder="Your name" />
-              <input placeholder="Best phone number to reach you" />
-              <input placeholder="Email address" />
-              <textarea placeholder="Tell us about your loved one and the kind of support needed" />
-              <button type="button" className="btn btn-dark">
+            <form
+              action="https://formspree.io/f/xykbpndy"
+              method="POST"
+              className="form-grid"
+            >
+              <input
+                name="name"
+                placeholder="Your name"
+                value={contactForm.name}
+                onChange={handleContactChange}
+                required
+              />
+              <input
+                name="phone"
+                placeholder="Best phone number to reach you"
+                value={contactForm.phone}
+                onChange={handleContactChange}
+                required
+              />
+              <input
+                name="email"
+                type="email"
+                placeholder="Email address"
+                value={contactForm.email}
+                onChange={handleContactChange}
+                required
+              />
+              <textarea
+                name="message"
+                placeholder="Tell us about your loved one and the kind of support needed"
+                value={contactForm.message}
+                onChange={handleContactChange}
+                required
+              />
+              <button type="submit" className="btn btn-dark">
                 Send Request
               </button>
             </form>
