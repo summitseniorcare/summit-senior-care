@@ -1,5 +1,6 @@
 import "./App.css"
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { supabase } from "./supabaseClient"
 
 export default function SummitSeniorCareLandingPage() {
   const services = [
@@ -86,11 +87,6 @@ export default function SummitSeniorCareLandingPage() {
     "4:00 PM",
   ]
 
-  const bookedSlots = {
-    "2026-04-05": ["10:00 AM", "1:00 PM"],
-    "2026-04-06": ["9:00 AM", "3:00 PM"],
-  }
-
   const [appointmentForm, setAppointmentForm] = useState({
     name: "",
     phone: "",
@@ -107,6 +103,9 @@ export default function SummitSeniorCareLandingPage() {
 
   const [selectedDate, setSelectedDate] = useState("")
   const [selectedTime, setSelectedTime] = useState("")
+  const [bookedTimes, setBookedTimes] = useState([])
+  const [loadingTimes, setLoadingTimes] = useState(false)
+  const [submittingAppointment, setSubmittingAppointment] = useState(false)
 
   const handleAppointmentChange = (e) => {
     const { name, value } = e.target
@@ -122,6 +121,156 @@ export default function SummitSeniorCareLandingPage() {
       ...prev,
       [name]: value,
     }))
+  }
+
+  const parseTimeString = (dateString, timeString) => {
+    if (!dateString || !timeString) return null
+
+    const [timePart, modifier] = timeString.split(" ")
+    let [hours, minutes] = timePart.split(":").map(Number)
+
+    if (modifier === "PM" && hours !== 12) hours += 12
+    if (modifier === "AM" && hours === 12) hours = 0
+
+    const date = new Date(`${dateString}T00:00:00`)
+    date.setHours(hours, minutes, 0, 0)
+
+    return date
+  }
+
+  const isTimeDisabled = (time) => {
+    if (!selectedDate) return true
+
+    const slotDateTime = parseTimeString(selectedDate, time)
+    if (!slotDateTime) return true
+
+    const now = new Date()
+    const bufferDateTime = new Date(now.getTime() + 3 * 60 * 60 * 1000)
+
+    if (slotDateTime < bufferDateTime) return true
+    if (bookedTimes.includes(time)) return true
+
+    return false
+  }
+
+  useEffect(() => {
+    const fetchBookedTimes = async () => {
+      if (!selectedDate) {
+        setBookedTimes([])
+        return
+      }
+
+      setLoadingTimes(true)
+
+      const { data, error } = await supabase
+        .from("appointments")
+        .select("time")
+        .eq("date", selectedDate)
+
+      if (error) {
+        console.error("Error loading booked times:", error)
+        setBookedTimes([])
+      } else {
+        setBookedTimes(data.map((item) => item.time))
+      }
+
+      setLoadingTimes(false)
+    }
+
+    fetchBookedTimes()
+  }, [selectedDate])
+
+  const handleAppointmentSubmit = async (e) => {
+    e.preventDefault()
+
+    if (!selectedDate || !selectedTime) {
+      alert("Please select a date and time.")
+      return
+    }
+
+    if (isTimeDisabled(selectedTime)) {
+      alert("That time is no longer available. Please choose another slot.")
+      return
+    }
+
+    setSubmittingAppointment(true)
+
+    try {
+      const { data: existingAppointments, error: checkError } = await supabase
+        .from("appointments")
+        .select("id")
+        .eq("date", selectedDate)
+        .eq("time", selectedTime)
+
+      if (checkError) {
+        console.error("Error checking appointment:", checkError)
+        alert("We could not verify that time slot. Please try again.")
+        setSubmittingAppointment(false)
+        return
+      }
+
+      if (existingAppointments && existingAppointments.length > 0) {
+        alert("That time has already been booked. Please choose another one.")
+        setSelectedTime("")
+        setSubmittingAppointment(false)
+        return
+      }
+
+      const { error: insertError } = await supabase.from("appointments").insert([
+        {
+          date: selectedDate,
+          time: selectedTime,
+          name: appointmentForm.name,
+          phone: appointmentForm.phone,
+          email: appointmentForm.email,
+          message: appointmentForm.message,
+        },
+      ])
+
+      if (insertError) {
+        console.error("Error saving appointment:", insertError)
+        alert("There was an error saving the appointment. Please try again.")
+        setSubmittingAppointment(false)
+        return
+      }
+
+      const formData = new FormData()
+      formData.append("name", appointmentForm.name)
+      formData.append("phone", appointmentForm.phone)
+      formData.append("email", appointmentForm.email)
+      formData.append("preferredDate", selectedDate)
+      formData.append("preferredTime", selectedTime)
+      formData.append("message", appointmentForm.message)
+
+      try {
+        await fetch("https://formspree.io/f/xykbpndy", {
+          method: "POST",
+          body: formData,
+          headers: {
+            Accept: "application/json",
+          },
+        })
+      } catch (emailError) {
+        console.error("Formspree email error:", emailError)
+      }
+
+      alert("Appointment requested successfully.")
+
+      setAppointmentForm({
+        name: "",
+        phone: "",
+        email: "",
+        message: "",
+      })
+      setSelectedDate("")
+      setSelectedTime("")
+      setBookedTimes([])
+    } catch (error) {
+      console.error("Unexpected error:", error)
+      alert("Something went wrong. Please try again.")
+    } finally {
+      setSubmittingAppointment(false)
+    }
   }
 
   return (
@@ -305,11 +454,7 @@ export default function SummitSeniorCareLandingPage() {
             <p className="eyebrow">Request an appointment</p>
             <h3>Select your date and time</h3>
 
-            <form
-              action="https://formspree.io/f/xykbpndy"
-              method="POST"
-              className="form-grid"
-            >
+            <form onSubmit={handleAppointmentSubmit} className="form-grid">
               <input
                 name="name"
                 placeholder="Your name"
@@ -337,6 +482,7 @@ export default function SummitSeniorCareLandingPage() {
                 type="date"
                 name="preferredDate"
                 value={selectedDate}
+                min={new Date().toISOString().split("T")[0]}
                 onChange={(e) => {
                   setSelectedDate(e.target.value)
                   setSelectedTime("")
@@ -346,35 +492,16 @@ export default function SummitSeniorCareLandingPage() {
 
               <div className="time-grid">
                 {timeSlots.map((time) => {
-                  const isBooked = bookedSlots[selectedDate]?.includes(time)
-
-                  const today = new Date().toISOString().split("T")[0]
-                  let isPast = false
-
-                  if (selectedDate === today) {
-                    const now = new Date()
-                    const [hour, modifier] = time.split(" ")
-                    let [h, m] = hour.split(":").map(Number)
-
-                    if (modifier === "PM" && h !== 12) h += 12
-                    if (modifier === "AM" && h === 12) h = 0
-
-                    const slotTime = new Date()
-                    slotTime.setHours(h, m, 0, 0)
-
-                    const bufferHours = 3
-                    const diffInMs = slotTime - now
-                    const diffInHours = diffInMs / (1000 * 60 * 60)
-
-                    isPast = diffInHours < bufferHours
-                  }
+                  const disabled = isTimeDisabled(time)
 
                   return (
                     <button
                       type="button"
                       key={time}
-                      disabled={isBooked || isPast}
-                      className={`time-slot ${selectedTime === time ? "selected" : ""} ${isBooked || isPast ? "booked" : ""}`}
+                      disabled={disabled || loadingTimes}
+                      className={`time-slot ${selectedTime === time ? "selected" : ""} ${
+                        disabled || loadingTimes ? "booked" : ""
+                      }`}
                       onClick={() => setSelectedTime(time)}
                     >
                       {time}
@@ -396,9 +523,9 @@ export default function SummitSeniorCareLandingPage() {
               <button
                 type="submit"
                 className="btn btn-dark"
-                disabled={!selectedDate || !selectedTime}
+                disabled={!selectedDate || !selectedTime || loadingTimes || submittingAppointment}
               >
-                Request Appointment
+                {submittingAppointment ? "Submitting..." : "Request Appointment"}
               </button>
             </form>
           </div>
