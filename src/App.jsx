@@ -1,6 +1,7 @@
 import "./App.css"
 import { useEffect, useState } from "react"
 import { supabase } from "./supabaseClient"
+import logo from "./assets/logo-new.png"
 
 export default function SummitSeniorCareLandingPage() {
   const services = [
@@ -279,18 +280,11 @@ export default function SummitSeniorCareLandingPage() {
         <div className="container">
           <header className="topbar">
             <div className="brand">
-              <div className="brand-badge" aria-label="Heart and mountain logo">
-                <svg viewBox="0 0 64 64" className="brand-logo" role="img">
-                  <path
-                    d="M31.5 54c-.8 0-1.6-.3-2.2-.8l-15.3-13C8 34.8 6 31.5 6 27.5 6 20.6 11 16 17.1 16c4.2 0 7.2 2 9.2 4.6 2-2.6 5-4.6 9.2-4.6C41.6 16 47 20.5 47 27.5c0 4-2 7.3-8 12.7l-5.3 4.6-.2.2-2 1.8z"
-                    fill="#7fd9de"
-                  />
-                  <path
-                    d="M18 40.5 27.8 29l6 8.2 4.8-5.5L46 40.5H18z"
-                    fill="#ffffff"
-                  />
-                </svg>
-              </div>
+              <img
+                src={logo}
+                alt="Summit Senior Care logo"
+                className="brand-logo-image"
+              />
 
               <div>
                 <div className="brand-title">Summit Senior Care</div>

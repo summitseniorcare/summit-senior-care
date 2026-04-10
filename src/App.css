@@ -53,23 +53,15 @@ img {
 .brand {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 18px;
 }
 
-.brand-badge {
-  width: 58px;
-  height: 58px;
-  border-radius: 18px;
-  background: linear-gradient(180deg, #8fe3e8 0%, #69cfd7 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 14px 30px rgba(63, 154, 163, 0.22);
-}
-
-.brand-logo {
-  width: 34px;
-  height: 34px;
+.brand-logo-image {
+  width: 160px !important;
+  height: 160px !important;
+  object-fit: contain;
+  display: block;
+  flex-shrink: 0;
 }
 
 .brand-title {
@@ -528,6 +520,16 @@ img {
   .topbar {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .brand {
+    align-items: center;
+    gap: 14px;
+  }
+
+  .brand-logo-image {
+    width: 85px !important;
+    height: 85px !important;
   }
 
   .hero-title {
